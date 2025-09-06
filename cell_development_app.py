@@ -360,11 +360,13 @@ def generate_excel_file(material_name, material_data):
         ocv_df.to_excel(writer, sheet_name='OCV', index=False)
         
         # TOCV sheet (Temperature-dependent OCV)
+        ocv_voltage = material_data['performance_data']['OCV']['voltage']
+        ocv_capacity = material_data['performance_data']['OCV']['capacity']
         tocv_df = pd.DataFrame({
-            'Temperature (°C)': [25, 45, 60],
-            'OCV_25C (V)': material_data['performance_data']['OCV']['voltage'],
-            'OCV_45C (V)': [v + 0.05 for v in material_data['performance_data']['OCV']['voltage']],
-            'OCV_60C (V)': [v + 0.1 for v in material_data['performance_data']['OCV']['voltage']]
+            'Capacity (mAh/g)': ocv_capacity,
+            'OCV_25C (V)': ocv_voltage,
+            'OCV_45C (V)': [v + 0.05 for v in ocv_voltage],
+            'OCV_60C (V)': [v + 0.1 for v in ocv_voltage]
         })
         tocv_df.to_excel(writer, sheet_name='TOCV', index=False)
         
