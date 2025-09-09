@@ -1,26 +1,23 @@
 """
-Pages Module for the Cell Development Platform
-Contains all page rendering functions
+Page rendering functions for the Cell Development Platform
 """
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import numpy as np
-import json
-from material_data import get_default_material_data
+from material_data import get_default_material_data, get_default_anode_data
+from utils import save_coa_to_json, create_excel_export
+from plotting import generate_psd_plot, create_performance_plot, create_cycle_life_plots
+from ai_assistant import EnhancedAIAssistant
+from cell_design import CellDesignManager
 
 
 def render_header():
-    """Render the application header"""
-    st.set_page_config(
-        page_title="Cell Development Platform",
-        page_icon="🔋",
-        layout="wide"
-    )
-    
-    st.title("🔋 Cell Development Platform")
-    st.markdown("Advanced battery cell design and analysis platform")
+    """Render the main header"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔋 Cell Development Platform</h1>
+        <p>Advanced battery material analysis and optimization tools</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_home_page():
@@ -110,26 +107,14 @@ def render_material_selector_page():
 
 
 def render_cathode_materials_page():
-    """Render the cathode materials page with CoA data editing"""
+    """Render the cathode materials page with electrode design interface"""
     if st.button("← Back to Material Selector", key="back_to_materials"):
         st.session_state.current_page = 'material_selector'
         st.rerun()
     
-    st.markdown("### ⚡ Cathode Materials Analysis")
-    
-    # Material selection
-    # Check if material was passed from cell design workflow
-    if 'selected_cathode' in st.session_state:
-        default_index = ['NMC811', 'LCO', 'NCA'].index(st.session_state.selected_cathode) if st.session_state.selected_cathode in ['NMC811', 'LCO', 'NCA'] else 0
-    else:
-        default_index = 0
-    
-    selected_cathode = st.selectbox(
-        "Select Cathode Material:",
-        options=['NMC811', 'LCO', 'NCA'],
-        index=default_index,
-        key="cathode_selector"
-    )
+    # Import and use the electrode design function
+    from electrode_design import render_cathode_electrode_design
+    render_cathode_electrode_design()
     
     # Initialize session state for selected material
     coa_key = f"coa_data_{selected_cathode}"
@@ -200,72 +185,96 @@ def render_cathode_materials_page():
             'moisture': moisture, 'impurities': impurities, 'pH': ph_value, 'crystallinity': crystallinity
         }
         st.session_state[coa_key] = updated_coa_data
-        st.success(f"✅ CoA data updated successfully for {selected_cathode}")
+        
+        # Save to JSON file for plot functions
+        json_filename = save_coa_to_json(updated_coa_data, selected_cathode)
+        
+        # Track action in AI context
+        if 'ai_assistant' in st.session_state:
+            st.session_state.ai_assistant.context_manager.add_recent_action(
+                f"Updated CoA data for {selected_cathode}",
+                {"material": selected_cathode, "filename": json_filename}
+            )
+        
+        st.success(f"✅ CoA data updated successfully! Saved to {json_filename}")
         st.rerun()
     
     # PSD Plot Section
     st.markdown("#### Particle Size Distribution")
-    
-    # Create PSD plot
-    try:
-        from plotting import generate_psd_plot
-        generate_psd_plot(st.session_state[coa_key], 'Both', selected_cathode)
-    except Exception as e:
-        st.error(f"Error generating PSD plot: {str(e)}")
-        st.info("Make sure scipy is installed: pip install scipy")
-    
-    # Performance plots
-    st.markdown("#### Performance Analysis")
+    psd_plot_type = st.selectbox(
+        "Select PSD Plot Type:",
+        options=['Normal Distribution', 'Cumulative Distribution', 'Both'],
+        key=f"psd_plot_type_{selected_cathode}"
+    )
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # OCV plot
-        soc = np.linspace(0, 100, 100)
-        voltage = 3.7 - 0.5 * (soc/100) + 0.2 * np.sin(2 * np.pi * soc/100)
-        
-        fig = px.line(x=soc, y=voltage, title="OCV vs SOC")
-        fig.update_layout(xaxis_title="State of Charge (%)", yaxis_title="Voltage (V)")
-        st.plotly_chart(fig, use_container_width=True)
+        # Generate PSD plot
+        try:
+            generate_psd_plot(st.session_state[coa_key], psd_plot_type, selected_cathode)
+        except Exception as e:
+            st.error(f"Error generating PSD plot: {str(e)}")
+            st.info("Make sure scipy is installed: pip install scipy")
     
     with col2:
-        # Cycle life plot
-        cycles = np.linspace(0, 1000, 100)
-        capacity_retention = 100 * np.exp(-cycles/2000)
+        # Performance data plot selection
+        plot_type = st.selectbox(
+            "Select Performance Data:",
+            options=['OCV', 'GITT', 'EIS'],
+            key="performance_plot_type"
+        )
         
-        fig = px.line(x=cycles, y=capacity_retention, title="Cycle Life")
-        fig.update_layout(xaxis_title="Cycle Number", yaxis_title="Capacity Retention (%)")
+        # Create performance plot
+        fig = create_performance_plot(selected_cathode, plot_type, material_data)
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Cycle life and coulombic efficiency plots
+        col_cycle, col_eff = st.columns(2)
+        
+        with col_cycle:
+            cycle_fig, eff_fig = create_cycle_life_plots(material_data)
+            st.plotly_chart(cycle_fig, use_container_width=True)
+        
+        with col_eff:
+            st.plotly_chart(eff_fig, use_container_width=True)
+    
+    # Export functionality
+    st.markdown("#### Export Data")
+    if st.button("📥 Export to Excel", key=f"export_{selected_cathode}"):
+        try:
+            excel_data = create_excel_export(material_data['name'], st.session_state[coa_key])
+            st.download_button(
+                label="Download Excel File",
+                data=excel_data,
+                file_name=f"{selected_cathode}_material_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"Error creating Excel export: {str(e)}")
 
 
 def render_anode_materials_page():
-    """Render the anode materials page with CoA data editing"""
+    """Render the anode materials page with dropdown, table, and plots"""
     if st.button("← Back to Material Selector", key="back_to_materials_anode"):
         st.session_state.current_page = 'material_selector'
         st.rerun()
     
-    st.markdown("### 🔋 Anode Materials Analysis")
+    st.markdown("### Anode Materials Analysis")
     
     # Material selection
-    # Check if material was passed from cell design workflow
-    if 'selected_anode' in st.session_state:
-        default_index = ['Graphite', 'Silicon', 'Tin'].index(st.session_state.selected_anode) if st.session_state.selected_anode in ['Graphite', 'Silicon', 'Tin'] else 0
-    else:
-        default_index = 0
-    
     selected_anode = st.selectbox(
         "Select Anode Material:",
         options=['Graphite', 'Silicon', 'Tin'],
-        index=default_index,
         key="anode_selector"
     )
     
     # Initialize session state for selected material
-    coa_key = f"coa_data_{selected_anode}"
+    coa_key = f"anode_coa_data_{selected_anode}"
     if coa_key not in st.session_state:
-        st.session_state[coa_key] = get_default_material_data(selected_anode)['coa_data']
+        st.session_state[coa_key] = get_default_anode_data(selected_anode)['coa_data']
     
-    material_data = get_default_material_data(selected_anode)
+    material_data = get_default_anode_data(selected_anode)
     
     # Display material info
     st.markdown(f"**Selected Material:** {material_data['name']}")
@@ -289,13 +298,13 @@ def render_anode_materials_page():
             'Moisture Content (%)', 'Total Impurities (ppm)', 'pH Value', 'Crystallinity (%)'
         ],
         'Value': [
-            coa_data.get('D_min', 0.5), coa_data.get('D10', 2.1), coa_data.get('D50', 8.5),
-            coa_data.get('D90', 18.2), coa_data.get('D_max', 45.0),
-            coa_data.get('BET', 0.8), coa_data.get('tap_density', 2.4),
-            coa_data.get('bulk_density', 1.8), coa_data.get('true_density', 2.2),
+            coa_data.get('D_min', 5.0), coa_data.get('D10', 8.2), coa_data.get('D50', 15.5),
+            coa_data.get('D90', 28.0), coa_data.get('D_max', 50.0),
+            coa_data.get('BET', 2.5), coa_data.get('tap_density', 1.0),
+            coa_data.get('bulk_density', 0.8), coa_data.get('true_density', 2.2),
             coa_data.get('capacity', 372), coa_data.get('voltage', 0.1),
-            coa_data.get('energy_density', 37), coa_data.get('cycle_life', 1000),
-            coa_data.get('moisture', 0.02), coa_data.get('impurities', 50),
+            coa_data.get('energy_density', 37), coa_data.get('cycle_life', 2000),
+            coa_data.get('moisture', 0.01), coa_data.get('impurities', 20),
             coa_data.get('pH', 7.0), coa_data.get('crystallinity', 95.0)
         ]
     }
@@ -320,7 +329,7 @@ def render_anode_materials_page():
     moisture, impurities, ph_value, crystallinity = values[13:17]
     
     # Update button
-    if st.button("📊 Update CoA Data", key=f"update_coa_{selected_anode}", use_container_width=True):
+    if st.button("📊 Update CoA Data", key=f"update_anode_coa_{selected_anode}", use_container_width=True):
         # Update session state with new values
         updated_coa_data = {
             'D_min': d_min, 'D10': d10, 'D50': d50, 'D90': d90, 'D_max': d_max,
@@ -329,42 +338,63 @@ def render_anode_materials_page():
             'moisture': moisture, 'impurities': impurities, 'pH': ph_value, 'crystallinity': crystallinity
         }
         st.session_state[coa_key] = updated_coa_data
-        st.success(f"✅ CoA data updated successfully for {selected_anode}")
+        
+        # Save to JSON file for plot functions
+        json_filename = save_coa_to_json(updated_coa_data, f"anode_{selected_anode}")
+        
+        # Track action in AI context
+        if 'ai_assistant' in st.session_state:
+            st.session_state.ai_assistant.context_manager.add_recent_action(
+                f"Updated CoA data for anode {selected_anode}",
+                {"material_type": "anode", "material": selected_anode, "filename": json_filename}
+            )
+        
+        st.success(f"✅ CoA data updated successfully! Saved to {json_filename}")
         st.rerun()
     
     # PSD Plot Section
     st.markdown("#### Particle Size Distribution")
-    
-    # Create PSD plot
-    try:
-        from plotting import generate_psd_plot
-        generate_psd_plot(st.session_state[coa_key], 'Both', selected_anode)
-    except Exception as e:
-        st.error(f"Error generating PSD plot: {str(e)}")
-        st.info("Make sure scipy is installed: pip install scipy")
-    
-    # Performance plots
-    st.markdown("#### Performance Analysis")
+    psd_plot_type = st.selectbox(
+        "Select PSD Plot Type:",
+        options=['Normal Distribution', 'Cumulative Distribution', 'Both'],
+        key=f"anode_psd_plot_type_{selected_anode}"
+    )
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # OCV plot
-        soc = np.linspace(0, 100, 100)
-        voltage = 0.1 + 0.3 * (soc/100) + 0.1 * np.sin(2 * np.pi * soc/50)
-        
-        fig = px.line(x=soc, y=voltage, title="OCV vs SOC")
-        fig.update_layout(xaxis_title="State of Charge (%)", yaxis_title="Voltage (V)")
-        st.plotly_chart(fig, use_container_width=True)
+        # Generate PSD plot
+        try:
+            generate_psd_plot(st.session_state[coa_key], psd_plot_type, f"anode_{selected_anode}")
+        except Exception as e:
+            st.error(f"Error generating PSD plot: {str(e)}")
+            st.info("Make sure scipy is installed: pip install scipy")
     
     with col2:
-        # Cycle life plot
-        cycles = np.linspace(0, 1000, 100)
-        capacity_retention = 100 * np.exp(-cycles/2000)
+        # Performance data plot selection
+        plot_type = st.selectbox(
+            "Select Performance Data:",
+            options=['OCV', 'GITT', 'EIS'],
+            key=f"anode_performance_plot_type_{selected_anode}"
+        )
         
-        fig = px.line(x=cycles, y=capacity_retention, title="Cycle Life")
-        fig.update_layout(xaxis_title="Cycle Number", yaxis_title="Capacity Retention (%)")
+        # Create performance plot
+        fig = create_performance_plot(f"anode_{selected_anode}", plot_type, material_data)
         st.plotly_chart(fig, use_container_width=True)
+    
+    # Export functionality
+    st.markdown("#### Export Data")
+    if st.button("📥 Export to Excel", key=f"export_anode_{selected_anode}"):
+        try:
+            excel_data = create_excel_export(material_data['name'], st.session_state[coa_key])
+            st.download_button(
+                label="Download Excel File",
+                data=excel_data,
+                file_name=f"anode_{selected_anode}_material_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"Error creating Excel export: {str(e)}")
 
 
 def render_cell_design_page():
@@ -378,7 +408,6 @@ def render_cell_design_page():
     
     # Initialize cell design manager
     if 'cell_design_manager' not in st.session_state:
-        from cell_design import CellDesignManager
         st.session_state.cell_design_manager = CellDesignManager()
     
     design_manager = st.session_state.cell_design_manager
@@ -391,42 +420,53 @@ def render_chat_interface():
     """Render the enhanced chat interface with context awareness"""
     st.markdown("### 🤖 AI Assistant")
     
-    # Initialize AI context if not exists
-    if 'ai_context' not in st.session_state:
-        st.session_state.ai_context = {
-            'current_page': 'home',
-            'selected_materials': {},
-            'recent_actions': []
-        }
+    # Initialize AI assistant
+    if 'ai_assistant' not in st.session_state:
+        st.session_state.ai_assistant = EnhancedAIAssistant()
     
-    # Display current context
-    context = st.session_state.ai_context
-    st.markdown("#### Current Context")
+    ai_assistant = st.session_state.ai_assistant
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.write(f"**Page:** {context.get('current_page', 'home').title()}")
-    with col2:
-        selected_materials = [v for v in context['selected_materials'].values() if v is not None]
-        st.write(f"**Selected Materials:** {', '.join(selected_materials) if selected_materials else 'None'}")
-    with col3:
-        recent_actions = [a for a in context['recent_actions'][-3:] if a is not None]
-        st.write(f"**Recent Actions:** {', '.join(recent_actions) if recent_actions else 'None'}")
+    # Show current context
+    with st.expander("📍 Current Context", expanded=False):
+        current_page = st.session_state.get('current_page', 'home')
+        selected_materials = {}
+        
+        # Get selected materials from session state
+        for key in st.session_state.keys():
+            if key.startswith('coa_data_') or key.startswith('anode_coa_data_'):
+                material_name = key.replace('coa_data_', '').replace('anode_coa_data_', '')
+                if 'anode_coa_data_' in key:
+                    selected_materials['anode'] = material_name
+                else:
+                    selected_materials['cathode'] = material_name
+        
+        st.write(f"**Current Page:** {current_page}")
+        if selected_materials:
+            st.write(f"**Selected Materials:** {selected_materials}")
+        else:
+            st.write("**Selected Materials:** None")
+        
+        # Show recent actions
+        recent_actions = ai_assistant.get_recent_actions()
+        if recent_actions:
+            st.write("**Recent Actions:**")
+            for action in recent_actions[:3]:
+                st.write(f"• {action['action']}")
     
-    # Chat interface
-    st.markdown("#### Chat with AI Assistant")
+    # Show contextual suggestions
+    suggestions = ai_assistant.get_contextual_suggestions(current_page)
+    if suggestions:
+        st.markdown("💡 **Suggestions:**")
+        for suggestion in suggestions:
+            st.write(f"• {suggestion}")
     
     # Chat history
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-    
-    # Display chat history
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.write(message["content"])
     
     # Chat input
-    if prompt := st.chat_input("Ask me anything about cell development..."):
+    if prompt := st.chat_input("Ask me anything about battery materials..."):
         # Add user message to chat history
         st.session_state.chat_history.append({"role": "user", "content": prompt})
         
@@ -434,17 +474,87 @@ def render_chat_interface():
         with st.chat_message("user"):
             st.write(prompt)
         
-        # Generate AI response
+        # Generate AI response with context awareness
+        current_page = st.session_state.get('current_page', 'home')
+        selected_materials = {}
+        
+        # Get selected materials from session state
+        for key in st.session_state.keys():
+            if key.startswith('coa_data_') or key.startswith('anode_coa_data_'):
+                material_name = key.replace('coa_data_', '').replace('anode_coa_data_', '')
+                if 'anode_coa_data_' in key:
+                    selected_materials['anode'] = material_name
+                else:
+                    selected_materials['cathode'] = material_name
+        
+        # Generate response using enhanced AI assistant
+        response = ai_assistant.generate_response(prompt, current_page, selected_materials)
+        
+        # Check if response contains navigation commands
+        if any(word in response.lower() for word in ["i'll take you", "navigate", "go to"]):
+            # Extract navigation intent and execute
+            if "home" in response.lower():
+                st.session_state.current_page = 'home'
+                st.rerun()
+            elif "material selector" in response.lower():
+                st.session_state.current_page = 'material_selector'
+                st.rerun()
+            elif "cathode" in response.lower():
+                st.session_state.current_page = 'cathode_materials'
+                st.rerun()
+            elif "anode" in response.lower():
+                st.session_state.current_page = 'anode_materials'
+                st.rerun()
+        
+        # Add assistant response to chat history
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        
+        # Display assistant response
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                # Simple response for now
-                response = f"I understand you're asking about: {prompt}. This is a placeholder response."
-                st.write(response)
-                
-                # Add AI response to chat history
-                st.session_state.chat_history.append({"role": "assistant", "content": response})
+            st.write(response)
+
+
+def process_chat_command(prompt: str) -> str:
+    """Process chat commands and control the app"""
+    prompt_lower = prompt.lower()
     
-    # Back button
-    if st.button("← Back to Home", key="back_to_home_chat"):
+    if "home" in prompt_lower or "main" in prompt_lower:
         st.session_state.current_page = 'home'
         st.rerun()
+        return "Navigating to home page..."
+    
+    elif "material selector" in prompt_lower or "materials" in prompt_lower:
+        st.session_state.current_page = 'material_selector'
+        st.rerun()
+        return "Opening Material Selector..."
+    
+    elif "cathode" in prompt_lower:
+        st.session_state.current_page = 'cathode_materials'
+        st.rerun()
+        return "Opening Cathode Materials page..."
+    
+    elif "anode" in prompt_lower:
+        st.session_state.current_page = 'anode_materials'
+        st.rerun()
+        return "Opening Anode Materials page..."
+    
+    elif "nmc811" in prompt_lower:
+        st.session_state.current_page = 'cathode_materials'
+        st.session_state.selected_cathode = 'NMC811'
+        st.rerun()
+        return "Selecting NMC811 cathode material..."
+    
+    elif "lco" in prompt_lower:
+        st.session_state.current_page = 'cathode_materials'
+        st.session_state.selected_cathode = 'LCO'
+        st.rerun()
+        return "Selecting LCO cathode material..."
+    
+    elif "nca" in prompt_lower:
+        st.session_state.current_page = 'cathode_materials'
+        st.session_state.selected_cathode = 'NCA'
+        st.rerun()
+        return "Selecting NCA cathode material..."
+    
+    else:
+        return f"I understand you want to: {prompt}. I can help you navigate to different sections, select materials, or analyze battery data. Try commands like 'go to material selector', 'show cathode materials', or 'select NMC811'."

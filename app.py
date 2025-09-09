@@ -10,6 +10,7 @@ from pages import (
     render_cathode_materials_page, render_anode_materials_page,
     render_cell_design_page, render_chat_interface
 )
+from electrode_design import render_cathode_electrode_design, render_anode_electrode_design
 
 # Page configuration
 st.set_page_config(
@@ -128,6 +129,10 @@ def main():
             render_cathode_materials_page()
         elif st.session_state.current_page == 'anode_materials':
             render_anode_materials_page()
+        elif st.session_state.current_page == 'cathode_electrode_design':
+            render_cathode_electrode_design()
+        elif st.session_state.current_page == 'anode_electrode_design':
+            render_anode_electrode_design()
         elif st.session_state.current_page == 'cell_design':
             render_cell_design_page()
         elif st.session_state.current_page == 'electrolyte_materials':

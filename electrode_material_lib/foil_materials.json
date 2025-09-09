@@ -1,0 +1,44 @@
+{
+  "Aluminum": {
+    "name": "Aluminum Foil",
+    "type": "foil",
+    "properties": {
+      "density": 2.7,
+      "thickness": 20,
+      "electrical_conductivity": 35000000.0,
+      "tensile_strength": 100,
+      "elongation": 3,
+      "surface_roughness": 0.5,
+      "purity": 99.5,
+      "cost": "low"
+    },
+    "available_thicknesses": [
+      10,
+      15,
+      20,
+      25,
+      30
+    ]
+  },
+  "Copper": {
+    "name": "Copper Foil",
+    "type": "foil",
+    "properties": {
+      "density": 8.96,
+      "thickness": 10,
+      "electrical_conductivity": 58000000.0,
+      "tensile_strength": 200,
+      "elongation": 5,
+      "surface_roughness": 0.3,
+      "purity": 99.9,
+      "cost": "medium"
+    },
+    "available_thicknesses": [
+      6,
+      8,
+      10,
+      12,
+      15
+    ]
+  }
+}

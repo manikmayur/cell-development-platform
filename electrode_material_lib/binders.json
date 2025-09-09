@@ -1,0 +1,98 @@
+{
+  "PVDF": {
+    "name": "Polyvinylidene Fluoride (PVDF)",
+    "type": "binder",
+    "properties": {
+      "density": 1.78,
+      "molecular_weight": 444000,
+      "glass_transition_temp": -35,
+      "melting_point": 177,
+      "tensile_strength": 25,
+      "elongation_at_break": 300,
+      "solubility": "NMP, DMF",
+      "adhesion_strength": "excellent",
+      "chemical_stability": "excellent"
+    },
+    "functions": {
+      "viscosity_vs_concentration": {
+        "type": "power_law",
+        "parameters": {
+          "K": 0.1,
+          "n": 0.8
+        },
+        "range": [
+          1,
+          20
+        ]
+      },
+      "adhesion_vs_temp": {
+        "type": "exponential_decay",
+        "parameters": {
+          "A": 100,
+          "B": 0.02,
+          "C": 25
+        },
+        "range": [
+          20,
+          100
+        ]
+      }
+    }
+  },
+  "CMC": {
+    "name": "Carboxymethyl Cellulose (CMC)",
+    "type": "binder",
+    "properties": {
+      "density": 1.59,
+      "molecular_weight": 250000,
+      "glass_transition_temp": 105,
+      "melting_point": 280,
+      "tensile_strength": 15,
+      "elongation_at_break": 50,
+      "solubility": "Water",
+      "adhesion_strength": "good",
+      "chemical_stability": "good"
+    },
+    "functions": {
+      "viscosity_vs_concentration": {
+        "type": "power_law",
+        "parameters": {
+          "K": 0.05,
+          "n": 1.2
+        },
+        "range": [
+          0.5,
+          10
+        ]
+      }
+    }
+  },
+  "SBR": {
+    "name": "Styrene-Butadiene Rubber (SBR)",
+    "type": "binder",
+    "properties": {
+      "density": 0.94,
+      "molecular_weight": 150000,
+      "glass_transition_temp": -50,
+      "melting_point": 120,
+      "tensile_strength": 20,
+      "elongation_at_break": 500,
+      "solubility": "Water",
+      "adhesion_strength": "excellent",
+      "chemical_stability": "good"
+    },
+    "functions": {
+      "elastic_modulus_vs_temp": {
+        "type": "linear",
+        "coefficients": [
+          1000,
+          -10
+        ],
+        "range": [
+          -50,
+          100
+        ]
+      }
+    }
+  }
+}

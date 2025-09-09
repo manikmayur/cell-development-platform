@@ -1,0 +1,27 @@
+{
+  "name": "Stainless Steel 316L",
+  "type": "metal",
+  "properties": {
+    "density": 8.0,
+    "thermal_conductivity": 16,
+    "electrical_conductivity": 1400000.0,
+    "yield_strength": 290,
+    "tensile_strength": 580,
+    "melting_point": 1400,
+    "thermal_expansion": 1.6e-05,
+    "corrosion_resistance": "excellent"
+  },
+  "functions": {
+    "thermal_conductivity_vs_temp": {
+      "type": "linear",
+      "coefficients": [
+        16,
+        0.02
+      ],
+      "range": [
+        20,
+        500
+      ]
+    }
+  }
+}
