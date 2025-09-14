@@ -11,6 +11,7 @@ import pandas as pd
 import json
 import os
 from typing import Dict, List, Tuple, Optional
+from .schematic_generator import SchematicGenerator
 
 
 class CellDesignManager:
@@ -27,6 +28,9 @@ class CellDesignManager:
             "safety_features",
             "simulation"
         ]
+        
+        # Initialize schematic generator
+        self.schematic_generator = SchematicGenerator()
         
         # Form factor definitions with 2D schematics
         self.form_factors = {
@@ -54,7 +58,7 @@ class CellDesignManager:
         }
         
         # Initialize material library path
-        self.material_lib_path = "material_lib"
+        self.material_lib_path = "data/material_lib"
         self._ensure_material_lib_exists()
         
         # Load casing materials
@@ -175,10 +179,6 @@ class CellDesignManager:
         workflow = st.session_state.cell_design_workflow
         current_step = workflow['current_step']
         
-        # Create breadcrumb
-        breadcrumb_html = '<div style="background: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 20px;">'
-        breadcrumb_html += '<div style="display: flex; align-items: center; gap: 10px;">'
-        
         step_names = {
             0: "Form Factor",
             1: "Casing Material", 
@@ -189,21 +189,27 @@ class CellDesignManager:
             6: "Simulation"
         }
         
+        # Create breadcrumb using simple markdown
+        st.markdown("**Workflow Progress:**")
+        
+        # Create a simple horizontal layout
+        breadcrumb_text = ""
         for i, step in enumerate(self.workflow_steps):
             if i <= current_step:
                 # Completed or current step
-                color = "#1f77b4" if i == current_step else "#2ca02c"
-                weight = "bold" if i == current_step else "normal"
-                breadcrumb_html += f'<span style="color: {color}; font-weight: {weight};">{step_names[i]}</span>'
+                if i == current_step:
+                    breadcrumb_text += f"**{step_names[i]}**"
+                else:
+                    breadcrumb_text += f"✅ {step_names[i]}"
             else:
                 # Future step
-                breadcrumb_html += f'<span style="color: #ccc;">{step_names[i]}</span>'
+                breadcrumb_text += f"⏳ {step_names[i]}"
             
+            # Add arrow between steps
             if i < len(self.workflow_steps) - 1:
-                breadcrumb_html += '<span style="color: #ccc;"> → </span>'
+                breadcrumb_text += " → "
         
-        breadcrumb_html += '</div></div>'
-        st.markdown(breadcrumb_html, unsafe_allow_html=True)
+        st.markdown(breadcrumb_text)
     
     def render_form_factor_selection(self):
         """Render form factor selection with 2D schematics"""
@@ -215,187 +221,50 @@ class CellDesignManager:
         # Create three columns for form factors
         col1, col2, col3 = st.columns(3)
         
+        # Render each form factor card
         with col1:
-            self._render_form_factor_card("cylindrical", col1)
+            self._render_form_factor_card("cylindrical")
         
         with col2:
-            self._render_form_factor_card("pouch", col2)
+            self._render_form_factor_card("pouch")
         
         with col3:
-            self._render_form_factor_card("prismatic", col3)
+            self._render_form_factor_card("prismatic")
         
         # Show selected form factor details
         if workflow['form_factor']:
             self._render_form_factor_details()
     
-    def _render_form_factor_card(self, form_factor_key: str, column):
+    def _render_form_factor_card(self, form_factor_key: str):
         """Render individual form factor card with 2D schematic"""
         form_factor = self.form_factors[form_factor_key]
         workflow = st.session_state.cell_design_workflow
-        is_selected = workflow['form_factor'] == form_factor_key
         
-        # Card styling
-        border_color = "#1f77b4" if is_selected else "#e0e0e0"
-        background_color = "#f0f8ff" if is_selected else "#ffffff"
+        # Card header
+        st.markdown(f"#### {form_factor['name']}")
+        st.markdown(f"{form_factor['description']}")
         
-        with column:
-            st.markdown(f"""
-            <div style="
-                border: 2px solid {border_color};
-                border-radius: 10px;
-                padding: 20px;
-                background-color: {background_color};
-                text-align: center;
-                cursor: pointer;
-                margin-bottom: 10px;
-            ">
-                <h3>{form_factor['name']}</h3>
-                <p>{form_factor['description']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # 2D Schematic
-            self._render_2d_schematic(form_factor_key)
-            
-            # Selection button
-            if st.button(f"Select {form_factor['name']}", key=f"select_{form_factor_key}", use_container_width=True):
-                workflow['form_factor'] = form_factor_key
-                st.rerun()
+        # 2D Schematic
+        self._render_2d_schematic(form_factor_key)
+        
+        # Add consistent spacing
+        st.markdown("")
+        st.markdown("")
+        st.markdown("")
+        
+        # Selection button
+        if st.button(f"Select {form_factor['name']}", key=f"select_{form_factor_key}", use_container_width=True):
+            workflow['form_factor'] = form_factor_key
+            st.rerun()
     
     def _render_2d_schematic(self, form_factor_key: str):
-        """Render 2D schematic for form factor"""
-        if form_factor_key == "cylindrical":
-            self._render_cylindrical_schematic()
-        elif form_factor_key == "pouch":
-            self._render_pouch_schematic()
-        elif form_factor_key == "prismatic":
-            self._render_prismatic_schematic()
-    
-    def _render_cylindrical_schematic(self):
-        """Render 2D cylindrical cell schematic"""
-        fig = go.Figure()
+        """Render 2D schematic for form factor using enhanced schematics"""
+        workflow = st.session_state.cell_design_workflow
+        form_factor = self.form_factors[form_factor_key]
+        dimensions = form_factor['dimensions']
         
-        # Outer cylinder
-        theta = np.linspace(0, 2*np.pi, 100)
-        x_outer = 0.5 * np.cos(theta)
-        y_outer = 0.5 * np.sin(theta)
-        
-        # Inner cylinder (empty space)
-        x_inner = 0.3 * np.cos(theta)
-        y_inner = 0.3 * np.sin(theta)
-        
-        # Add traces
-        fig.add_trace(go.Scatter(x=x_outer, y=y_outer, fill='toself', 
-                                fillcolor='lightblue', line=dict(color='blue', width=2),
-                                name='Casing'))
-        fig.add_trace(go.Scatter(x=x_inner, y=y_inner, fill='toself',
-                                fillcolor='white', line=dict(color='gray', width=1),
-                                name='Interior'))
-        
-        # Add dimensions
-        fig.add_annotation(x=0, y=0.6, text="D", showarrow=True, arrowhead=2, 
-                          arrowcolor="red", ax=0, ay=-20)
-        fig.add_annotation(x=0.6, y=0, text="H", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=20, ay=0)
-        
-        fig.update_layout(
-            title="Cylindrical Cell",
-            xaxis=dict(scaleanchor="y", scaleratio=1, showgrid=False, zeroline=False),
-            yaxis=dict(showgrid=False, zeroline=False),
-            showlegend=False,
-            height=200,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    def _render_pouch_schematic(self):
-        """Render 2D pouch cell schematic"""
-        fig = go.Figure()
-        
-        # Pouch outline
-        x_pouch = [-0.4, 0.4, 0.4, -0.4, -0.4]
-        y_pouch = [-0.2, -0.2, 0.2, 0.2, -0.2]
-        
-        # Tabs
-        x_tab1 = [-0.1, 0.1, 0.1, -0.1, -0.1]
-        y_tab1 = [0.2, 0.2, 0.3, 0.3, 0.2]
-        
-        x_tab2 = [-0.1, 0.1, 0.1, -0.1, -0.1]
-        y_tab2 = [-0.2, -0.2, -0.3, -0.3, -0.2]
-        
-        fig.add_trace(go.Scatter(x=x_pouch, y=y_pouch, fill='toself',
-                                fillcolor='lightgreen', line=dict(color='green', width=2),
-                                name='Pouch'))
-        fig.add_trace(go.Scatter(x=x_tab1, y=y_tab1, fill='toself',
-                                fillcolor='darkgreen', line=dict(color='green', width=1),
-                                name='Tab+'))
-        fig.add_trace(go.Scatter(x=x_tab2, y=y_tab2, fill='toself',
-                                fillcolor='darkgreen', line=dict(color='green', width=1),
-                                name='Tab-'))
-        
-        # Add dimensions
-        fig.add_annotation(x=0, y=0.35, text="H", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=0, ay=-10)
-        fig.add_annotation(x=0.45, y=0, text="W", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=-10, ay=0)
-        fig.add_annotation(x=0, y=0, text="L", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=0, ay=0, arrowside="end")
-        
-        fig.update_layout(
-            title="Pouch Cell",
-            xaxis=dict(scaleanchor="y", scaleratio=1, showgrid=False, zeroline=False),
-            yaxis=dict(showgrid=False, zeroline=False),
-            showlegend=False,
-            height=200,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    def _render_prismatic_schematic(self):
-        """Render 2D prismatic cell schematic"""
-        fig = go.Figure()
-        
-        # Prismatic outline
-        x_prism = [-0.4, 0.4, 0.4, -0.4, -0.4]
-        y_prism = [-0.2, -0.2, 0.2, 0.2, -0.2]
-        
-        # Terminals
-        x_term1 = [-0.05, 0.05, 0.05, -0.05, -0.05]
-        y_term1 = [0.2, 0.2, 0.25, 0.25, 0.2]
-        
-        x_term2 = [-0.05, 0.05, 0.05, -0.05, -0.05]
-        y_term2 = [-0.2, -0.2, -0.25, -0.25, -0.2]
-        
-        fig.add_trace(go.Scatter(x=x_prism, y=y_prism, fill='toself',
-                                fillcolor='lightcoral', line=dict(color='red', width=2),
-                                name='Prismatic'))
-        fig.add_trace(go.Scatter(x=x_term1, y=y_term1, fill='toself',
-                                fillcolor='darkred', line=dict(color='red', width=1),
-                                name='Terminal+'))
-        fig.add_trace(go.Scatter(x=x_term2, y=y_term2, fill='toself',
-                                fillcolor='darkred', line=dict(color='red', width=1),
-                                name='Terminal-'))
-        
-        # Add dimensions
-        fig.add_annotation(x=0, y=0.3, text="H", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=0, ay=-10)
-        fig.add_annotation(x=0.45, y=0, text="W", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=-10, ay=0)
-        fig.add_annotation(x=0, y=0, text="L", showarrow=True, arrowhead=2,
-                          arrowcolor="red", ax=0, ay=0, arrowside="end")
-        
-        fig.update_layout(
-            title="Prismatic Cell",
-            xaxis=dict(scaleanchor="y", scaleratio=1, showgrid=False, zeroline=False),
-            yaxis=dict(showgrid=False, zeroline=False),
-            showlegend=False,
-            height=200,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        # Use the new schematic generator
+        self.schematic_generator.render_schematics(form_factor_key, dimensions)
     
     def _render_form_factor_details(self):
         """Render form factor dimension inputs and details"""
@@ -599,53 +468,6 @@ class CellDesignManager:
         )
         st.plotly_chart(fig, use_container_width=True)
     
-    def render_cathode_material_selection(self):
-        """Render cathode material selection with electrode design option"""
-        st.markdown("### ⚡ Select Cathode Material")
-        
-        workflow = st.session_state.cell_design_workflow
-        
-        # Quick selection for workflow
-        cathode_options = ["NMC811", "LCO", "NCA", "NMC622", "NMC532"]
-        selected_cathode = st.selectbox("Select Cathode Material:", cathode_options, key="workflow_cathode")
-        
-        if selected_cathode:
-            workflow['cathode_material'] = selected_cathode
-            st.success(f"Selected: {selected_cathode}")
-        
-        # Electrode design option
-        st.markdown("#### Electrode Design")
-        st.info("Design the cathode electrode composition, porosity, mass loading, and density")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🔧 Design Cathode Electrode", key="design_cathode_electrode", use_container_width=True):
-                workflow['current_step'] = 3
-                st.rerun()
-        
-        with col2:
-            if st.button("📋 View Material Details", key="view_cathode_details", use_container_width=True):
-                st.session_state.current_page = 'cathode_materials'
-                st.rerun()
-        
-        with col3:
-            if st.button("⏭️ Skip Electrode Design", key="skip_cathode_electrode", use_container_width=True):
-                workflow['current_step'] = 4
-                st.rerun()
-        
-        # Navigation buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("← Previous: Casing Material", key="prev_casing"):
-                workflow['current_step'] = 1
-                st.rerun()
-        
-        with col2:
-            if st.button("Next: Select Anode Material →", key="next_anode", use_container_width=True):
-                workflow['current_step'] = 4
-                st.rerun()
-    
     def render_cathode_electrode_design(self):
         """Render cathode electrode design with material selection"""
         st.markdown("### ⚡ Cathode Electrode Design")
@@ -742,53 +564,6 @@ class CellDesignManager:
         with col2:
             if st.button("Next: Electrolyte & Separator →", key="next_electrolyte", use_container_width=True):
                 workflow['current_step'] = 4
-                st.rerun()
-    
-    def render_anode_material_selection(self):
-        """Render anode material selection with electrode design option"""
-        st.markdown("### 🔋 Select Anode Material")
-        
-        workflow = st.session_state.cell_design_workflow
-        
-        # Quick selection for workflow
-        anode_options = ["Graphite", "Silicon", "Tin", "LTO", "Hard Carbon"]
-        selected_anode = st.selectbox("Select Anode Material:", anode_options, key="workflow_anode")
-        
-        if selected_anode:
-            workflow['anode_material'] = selected_anode
-            st.success(f"Selected: {selected_anode}")
-        
-        # Electrode design option
-        st.markdown("#### Electrode Design")
-        st.info("Design the anode electrode composition, porosity, mass loading, and density")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("🔧 Design Anode Electrode", key="design_anode_electrode", use_container_width=True):
-                st.session_state.current_page = 'anode_electrode_design'
-                st.rerun()
-        
-        with col2:
-            if st.button("📋 View Material Details", key="view_anode_details", use_container_width=True):
-                st.session_state.current_page = 'anode_materials'
-                st.rerun()
-        
-        with col3:
-            if st.button("⏭️ Skip Electrode Design", key="skip_anode_electrode", use_container_width=True):
-                workflow['current_step'] = 6
-                st.rerun()
-        
-        # Navigation buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("← Previous: Cathode Material", key="prev_cathode"):
-                workflow['current_step'] = 2
-                st.rerun()
-        
-        with col2:
-            if st.button("Next: Select Electrolyte & Separator →", key="next_electrolyte", use_container_width=True):
-                workflow['current_step'] = 6
                 st.rerun()
     
     def render_electrolyte_separator_selection(self):

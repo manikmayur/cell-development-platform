@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import json
-from electrode_materials import ElectrodeMaterialManager
+from .electrode_materials import ElectrodeMaterialManager
 
 
 def render_cathode_electrode_design():

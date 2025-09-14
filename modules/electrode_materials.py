@@ -11,7 +11,7 @@ class ElectrodeMaterialManager:
     """Manages electrode material libraries for binders and conductive agents"""
     
     def __init__(self):
-        self.material_lib_path = "electrode_material_lib"
+        self.material_lib_path = "data/electrode_material_lib"
         self._ensure_material_lib_exists()
         
         # Load material libraries

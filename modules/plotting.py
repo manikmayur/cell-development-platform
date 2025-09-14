@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
-from utils import generate_psd_distribution, load_performance_data_from_json
+from .utils import generate_psd_distribution, load_performance_data_from_json
 
 
 def generate_psd_plot(coa_data, plot_type, material_name):

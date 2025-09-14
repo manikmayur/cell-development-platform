@@ -8,7 +8,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import json
-from material_data import get_default_material_data
+from modules.material_data import get_default_material_data
+from modules.ocv_curves import OCVCurveGenerator
+from modules.coa_performance import render_anode_page, render_cathode_page
+from modules.coa_manager import render_coa_management_page
 
 
 def render_header():
@@ -60,6 +63,16 @@ def render_home_page():
         # Data Analytics button
         if st.button("📈 Data Analytics\n\nAdvanced data analysis tools", key="data_analytics", use_container_width=True, help="Click to open Data Analytics"):
             st.session_state.current_page = 'data_analytics'
+            st.rerun()
+        
+        # OCV Curves button
+        if st.button("🔋 OCV Curves\n\nOpen circuit voltage analysis", key="ocv_curves", use_container_width=True, help="Click to open OCV Curves"):
+            st.session_state.current_page = 'ocv_curves'
+            st.rerun()
+        
+        # CoA Management button
+        if st.button("📋 CoA Management\n\nCertificate of Analysis management", key="coa_management", use_container_width=True, help="Click to open CoA Management"):
+            st.session_state.current_page = 'coa_management'
             st.rerun()
     
     with col3:
@@ -126,7 +139,7 @@ def render_cathode_materials_page():
     
     selected_cathode = st.selectbox(
         "Select Cathode Material:",
-        options=['NMC811', 'LCO', 'NCA'],
+        options=['NMC811', 'LCO', 'NCA', 'LFP', 'NMC532'],
         index=default_index,
         key="cathode_selector"
     )
@@ -255,7 +268,7 @@ def render_anode_materials_page():
     
     selected_anode = st.selectbox(
         "Select Anode Material:",
-        options=['Graphite', 'Silicon', 'Tin'],
+        options=['Graphite', 'Silicon', 'Tin', 'LTO', 'Graphite+SiO2'],
         index=default_index,
         key="anode_selector"
     )
@@ -389,62 +402,137 @@ def render_cell_design_page():
 
 def render_chat_interface():
     """Render the enhanced chat interface with context awareness"""
-    st.markdown("### 🤖 AI Assistant")
+    from ai_assistant import render_chat_interface as ai_render_chat_interface
+    ai_render_chat_interface()
+
+
+def render_ocv_curves_page():
+    """Render OCV curves analysis page"""
+    st.markdown("### 🔋 OCV Curves Analysis")
+    st.markdown("Realistic Open Circuit Voltage curves for battery materials")
     
-    # Initialize AI context if not exists
-    if 'ai_context' not in st.session_state:
-        st.session_state.ai_context = {
-            'current_page': 'home',
-            'selected_materials': {},
-            'recent_actions': []
-        }
+    # Initialize OCV generator
+    ocv_gen = OCVCurveGenerator()
     
-    # Display current context
-    context = st.session_state.ai_context
-    st.markdown("#### Current Context")
+    # Sidebar controls
+    st.sidebar.header("Material Selection")
     
-    col1, col2, col3 = st.columns(3)
+    # Get available materials from database
+    available_materials = ocv_gen.get_available_materials()
+    
+    # Material selection
+    material = st.sidebar.selectbox(
+        "Select Material:",
+        available_materials,
+        format_func=lambda x: {
+            "graphite": "Graphite (Anode)",
+            "nmc811": "NMC811 (Cathode)",
+            "lfp": "LFP (Cathode)",
+            "nca": "NCA (Cathode)",
+            "lto": "LTO (Anode)",
+            "silicon": "Silicon (Anode)",
+            "graphite_sio2": "Graphite+SiO2 (Anode)",
+            "nmc532": "NMC532 (Cathode)",
+            "lco": "LCO (Cathode)"
+        }.get(x, x.title())
+    )
+    
+    # Temperature control
+    temperature = st.sidebar.slider(
+        "Temperature (°C):",
+        min_value=-20.0,
+        max_value=60.0,
+        value=25.0,
+        step=1.0
+    )
+    
+    # Display options
+    st.sidebar.header("Display Options")
+    show_plateaus = st.sidebar.checkbox("Show Plateaus", value=True)
+    show_derivative = st.sidebar.checkbox("Show Derivative (dV/dQ)", value=False)
+    
+    # Material properties
+    properties = ocv_gen.get_material_properties(material)
+    
+    col1, col2 = st.columns(2)
+    
     with col1:
-        st.write(f"**Page:** {context.get('current_page', 'home').title()}")
+        st.markdown("#### Material Properties")
+        st.write(f"**Name**: {properties['name']}")
+        st.write(f"**Type**: {properties['type'].title()}")
+        st.write(f"**Voltage Range**: {properties['voltage_range'][0]:.2f} - {properties['voltage_range'][1]:.2f} V")
+        st.write(f"**Capacity Range**: 0 - {properties['capacity_range'][1]} mAh/g")
+        st.write(f"**Curve Type**: {properties['curve_type'].title()}")
+    
     with col2:
-        selected_materials = [v for v in context['selected_materials'].values() if v is not None]
-        st.write(f"**Selected Materials:** {', '.join(selected_materials) if selected_materials else 'None'}")
-    with col3:
-        recent_actions = [a for a in context['recent_actions'][-3:] if a is not None]
-        st.write(f"**Recent Actions:** {', '.join(recent_actions) if recent_actions else 'None'}")
+        st.markdown("#### Key Features")
+        if material == 'graphite':
+            st.write("• **Staging Behavior**: Multiple voltage plateaus")
+            st.write("• **Low Voltage**: 0.01 - 0.25 V vs Li/Li+")
+            st.write("• **High Capacity**: Up to 372 mAh/g")
+            st.write("• **Safety**: Low voltage reduces risk")
+        else:
+            st.write("• **High Voltage**: 3.0 - 4.3 V vs Li/Li+")
+            st.write("• **Good Capacity**: 170 - 200 mAh/g")
+            st.write("• **Stable**: Good cycle life")
+            st.write("• **Energy Density**: High energy density")
     
-    # Chat interface
-    st.markdown("#### Chat with AI Assistant")
+    # Plot OCV curve
+    st.markdown("#### OCV Curve")
+    fig = ocv_gen.plot_ocv_curve(material, temperature, show_plateaus, show_derivative)
+    st.plotly_chart(fig, use_container_width=True)
     
-    # Chat history
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-    
-    # Display chat history
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-    
-    # Chat input
-    if prompt := st.chat_input("Ask me anything about cell development..."):
-        # Add user message to chat history
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
+    # Comparison plot
+    if st.checkbox("Show Comparison with Other Materials"):
+        st.markdown("#### Material Comparison")
+        comparison_materials = st.multiselect(
+            "Select materials to compare:",
+            available_materials,
+            default=[material, "nmc811"] if material != "nmc811" else [material, "graphite"]
+        )
         
-        # Display user message
-        with st.chat_message("user"):
-            st.write(prompt)
+        if comparison_materials:
+            comp_fig = ocv_gen.plot_comparison(comparison_materials, temperature)
+            st.plotly_chart(comp_fig, use_container_width=True)
+    
+    # Technical details
+    st.markdown("#### Technical Details")
+    
+    if material == 'graphite':
+        st.markdown("""
+        **Graphite OCV Characteristics:**
+        - **Stage 1 (0-50 mAh/g)**: Dilute stage, ~0.05 V
+        - **Stage 2 (50-150 mAh/g)**: Stage 2, ~0.08 V  
+        - **Stage 3 (150-250 mAh/g)**: Stage 3, ~0.12 V
+        - **Stage 4 (250-350 mAh/g)**: Stage 4, ~0.18 V
+        - **High SOC (350-372 mAh/g)**: Rapid voltage increase
         
-        # Generate AI response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                # Simple response for now
-                response = f"I understand you're asking about: {prompt}. This is a placeholder response."
-                st.write(response)
-                
-                # Add AI response to chat history
-                st.session_state.chat_history.append({"role": "assistant", "content": response})
+        The staging behavior is due to the intercalation of lithium ions into the graphite layers,
+        creating ordered structures at different compositions.
+        """)
+    else:
+        st.markdown(f"""
+        **{properties['name']} OCV Characteristics:**
+        - **Voltage Range**: {properties['voltage_range'][0]:.2f} - {properties['voltage_range'][1]:.2f} V
+        - **Capacity**: Up to {properties['capacity_range'][1]} mAh/g
+        - **Curve Shape**: {properties['curve_type'].title()} profile
+        - **Applications**: High energy density batteries
+        
+        The OCV curve shows the relationship between state of charge and open circuit voltage,
+        which is crucial for battery management systems.
+        """)
     
     # Back button
-    if st.button("← Back to Home", key="back_to_home_chat"):
+    if st.button("← Back to Home", key="back_to_home_ocv"):
         st.session_state.current_page = 'home'
         st.rerun()
+
+
+def render_anode_materials_page_new():
+    """Render anode materials page with CoA and performance plots"""
+    render_anode_page()
+
+
+def render_cathode_materials_page_new():
+    """Render cathode materials page with CoA and performance plots"""
+    render_cathode_page()
