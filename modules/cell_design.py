@@ -12,6 +12,7 @@ import json
 import os
 from typing import Dict, List, Tuple, Optional
 from .schematic_generator import SchematicGenerator
+from .material_data import get_available_materials, load_material_from_file
 
 
 class CellDesignManager:
@@ -402,8 +403,12 @@ class CellDesignManager:
         
         workflow = st.session_state.cell_design_workflow
         
-        # Material selection dropdown
-        material_options = list(self.casing_materials.keys())
+        # Material selection dropdown with dynamic loading
+        material_options = get_available_materials('casings')
+        if not material_options:
+            st.error("No casing materials found. Please check the data/materials/casings/ directory.")
+            material_options = ["Aluminum_3003"]  # Fallback
+            
         selected_material = st.selectbox(
             "Select Casing Material:",
             material_options,
@@ -412,7 +417,10 @@ class CellDesignManager:
         
         if selected_material:
             workflow['casing_material'] = selected_material
-            material_data = self.casing_materials[selected_material]
+            material_data = load_material_from_file(selected_material, 'casings')
+            if not material_data:
+                st.error(f"Could not load data for {selected_material}")
+                return
             
             # Display material properties
             st.markdown(f"#### {material_data['name']} Properties")
@@ -522,7 +530,10 @@ class CellDesignManager:
             }
         
         cathode_comp = workflow['cathode_composition']
-        cathode_options = ["NMC811", "LCO", "NCA", "NMC622", "NMC532", "LFP"]
+        cathode_options = get_available_materials('cathodes')
+        if not cathode_options:
+            st.error("No cathode materials found. Please check the data/materials/cathodes/ directory.")
+            cathode_options = ["NMC811"]  # Fallback
         
         # Material selection section
         st.markdown("#### Active Material Selection")
@@ -609,7 +620,7 @@ class CellDesignManager:
         with col2:
             if st.button("📋 Customize Material Properties", key="customize_cathode_material", use_container_width=True):
                 # Pass the selected material to the materials page
-                st.session_state.selected_cathode = selected_cathode
+                st.session_state.selected_cathode = primary_material
                 st.session_state.current_page = 'cathode_materials'
                 st.rerun()
         
@@ -657,8 +668,15 @@ class CellDesignManager:
             }
         
         anode_comp = workflow['anode_composition']
-        anode_options = ["Graphite", "Silicon", "Tin", "LTO", "Hard Carbon", "Graphite+SiO2"]
-        binder_options = ["PVDF", "PAA", "CMC", "SBR", "LA132"]
+        anode_options = get_available_materials('anodes')
+        if not anode_options:
+            st.error("No anode materials found. Please check the data/materials/anodes/ directory.")
+            anode_options = ["Graphite"]  # Fallback
+            
+        binder_options = get_available_materials('binders')
+        if not binder_options:
+            st.error("No binder materials found. Please check the data/materials/binders/ directory.")
+            binder_options = ["PVDF"]  # Fallback
         
         # Material selection section
         st.markdown("#### Active Material Selection")
@@ -816,7 +834,7 @@ class CellDesignManager:
         with col2:
             if st.button("📋 Customize Material Properties", key="customize_anode_material", use_container_width=True):
                 # Pass the selected material to the materials page
-                st.session_state.selected_anode = selected_anode
+                st.session_state.selected_anode = primary_material
                 st.session_state.current_page = 'anode_materials'
                 st.rerun()
         
@@ -847,13 +865,19 @@ class CellDesignManager:
         
         with col1:
             st.markdown("#### Electrolyte")
-            electrolyte_options = ["LiPF6 in EC:DMC", "LiPF6 in EC:EMC", "LiTFSI in EC:DMC"]
+            electrolyte_options = get_available_materials('electrolytes')
+            if not electrolyte_options:
+                st.error("No electrolyte materials found. Please check the data/materials/electrolytes/ directory.")
+                electrolyte_options = ["LiPF6_EC_DMC"]  # Fallback
             selected_electrolyte = st.selectbox("Select Electrolyte:", electrolyte_options, key="workflow_electrolyte")
             workflow['electrolyte'] = selected_electrolyte
         
         with col2:
             st.markdown("#### Separator")
-            separator_options = ["PE", "PP", "PE/PP Trilayer"]
+            separator_options = get_available_materials('separators')
+            if not separator_options:
+                st.error("No separator materials found. Please check the data/materials/separators/ directory.")
+                separator_options = ["PE"]  # Fallback
             selected_separator = st.selectbox("Select Separator:", separator_options, key="workflow_separator")
             workflow['separator'] = selected_separator
         
@@ -1074,15 +1098,16 @@ class CellDesignManager:
         """Initialize BOM data based on selected materials"""
         bom_data = []
         
-        # Casing materials
+        # Casing materials - load cost from JSON
         if workflow.get('casing_material'):
-            casing_cost = 5.0 if 'Aluminum' in workflow['casing_material'] else 8.0
+            casing_data = load_material_from_file(workflow['casing_material'], 'casings')
+            casing_cost = casing_data['cost']['per_kg'] / 100 if casing_data and 'cost' in casing_data else 5.0  # Assume 100g casing
             bom_data.append({
                 "Component": "Cell Casing",
-                "Material": workflow.get('casing_material', 'Aluminum 3003'),
-                "Quantity": 1.0,
-                "Unit": "pcs",
-                "Unit_Cost": casing_cost,
+                "Material": workflow.get('casing_material', 'Aluminum_3003'),
+                "Quantity": 0.1,  # 100g = 0.1kg
+                "Unit": "kg",
+                "Unit_Cost": casing_data['cost']['per_kg'] if casing_data and 'cost' in casing_data else 50.0,
                 "Total_Cost": casing_cost,
                 "Supplier": "TBD",
                 "Part_Number": "TBD"
@@ -1221,13 +1246,14 @@ class CellDesignManager:
                 "Part_Number": "TBD"
             })
         
-        # Electrolyte
+        # Electrolyte - load cost from JSON
         if workflow.get('electrolyte'):
             electrolyte_volume = 2.0  # ml
-            electrolyte_cost_per_ml = 0.15
+            electrolyte_data = load_material_from_file(workflow['electrolyte'], 'electrolytes')
+            electrolyte_cost_per_ml = electrolyte_data['cost']['per_liter'] / 1000 if electrolyte_data and 'cost' in electrolyte_data else 0.15
             bom_data.append({
                 "Component": "Electrolyte",
-                "Material": workflow.get('electrolyte', 'LiPF6 in EC:DMC'),
+                "Material": workflow.get('electrolyte', 'LiPF6_EC_DMC'),
                 "Quantity": electrolyte_volume,
                 "Unit": "ml",
                 "Unit_Cost": electrolyte_cost_per_ml,
@@ -1236,10 +1262,11 @@ class CellDesignManager:
                 "Part_Number": "TBD"
             })
         
-        # Separator
+        # Separator - load cost from JSON
         if workflow.get('separator'):
             separator_area = 0.02  # m²
-            separator_cost_per_m2 = 5.0
+            separator_data = load_material_from_file(workflow['separator'], 'separators')
+            separator_cost_per_m2 = separator_data['cost']['per_m2'] if separator_data and 'cost' in separator_data else 0.15
             bom_data.append({
                 "Component": "Separator",
                 "Material": workflow.get('separator', 'PE'),
@@ -1251,105 +1278,107 @@ class CellDesignManager:
                 "Part_Number": "TBD"
             })
         
-        # Add common components
-        bom_data.extend([
-            {
-                "Component": "Cathode Current Collector",
-                "Material": "Aluminum Foil (20μm)",
-                "Quantity": 2.0,
-                "Unit": "g",
-                "Unit_Cost": 0.05,
-                "Total_Cost": 0.10,
-                "Supplier": "TBD",
-                "Part_Number": "TBD"
-            },
-            {
-                "Component": "Anode Current Collector",
-                "Material": "Copper Foil (10μm)",
-                "Quantity": 1.5,
-                "Unit": "g",
-                "Unit_Cost": 0.08,
-                "Total_Cost": 0.12,
-                "Supplier": "TBD",
-                "Part_Number": "TBD"
-            },
-            {
-                "Component": "Binder",
-                "Material": "PVDF",
-                "Quantity": 1.0,
-                "Unit": "g",
-                "Unit_Cost": 0.20,
-                "Total_Cost": 0.20,
-                "Supplier": "TBD",
-                "Part_Number": "TBD"
-            },
-            {
-                "Component": "Conductive Additive",
-                "Material": "Carbon Black",
-                "Quantity": 0.5,
-                "Unit": "g",
-                "Unit_Cost": 0.15,
-                "Total_Cost": 0.075,
-                "Supplier": "TBD",
-                "Part_Number": "TBD"
-            }
-        ])
+        # Add current collector foils with JSON pricing
+        # Cathode current collector (Aluminum foil)
+        al_foil_data = load_material_from_file('Aluminum_Foil', 'foils')
+        al_foil_area = 0.02  # m²
+        al_foil_cost_per_m2 = al_foil_data['cost']['per_m2']['20'] if al_foil_data and 'cost' in al_foil_data else 0.46
+        bom_data.append({
+            "Component": "Cathode Current Collector",
+            "Material": "Aluminum Foil (20μm)",
+            "Quantity": al_foil_area,
+            "Unit": "m²",
+            "Unit_Cost": al_foil_cost_per_m2,
+            "Total_Cost": al_foil_area * al_foil_cost_per_m2,
+            "Supplier": "TBD",
+            "Part_Number": "TBD"
+        })
+        
+        # Anode current collector (Copper foil)
+        cu_foil_data = load_material_from_file('Copper_Foil', 'foils')
+        cu_foil_area = 0.02  # m²
+        cu_foil_cost_per_m2 = cu_foil_data['cost']['per_m2']['10'] if cu_foil_data and 'cost' in cu_foil_data else 1.13
+        bom_data.append({
+            "Component": "Anode Current Collector",
+            "Material": "Copper Foil (10μm)",
+            "Quantity": cu_foil_area,
+            "Unit": "m²",
+            "Unit_Cost": cu_foil_cost_per_m2,
+            "Total_Cost": cu_foil_area * cu_foil_cost_per_m2,
+            "Supplier": "TBD",
+            "Part_Number": "TBD"
+        })
+        bom_data.append({
+            "Component": "Binder",
+            "Material": "PVDF",
+            "Quantity": 1.0,
+            "Unit": "g",
+            "Unit_Cost": 0.20,
+            "Total_Cost": 0.20,
+            "Supplier": "TBD",
+            "Part_Number": "TBD"
+        })
+        bom_data.append({
+            "Component": "Conductive Additive",
+            "Material": "Carbon Black",
+            "Quantity": 0.5,
+            "Unit": "g",
+            "Unit_Cost": 0.15,
+            "Total_Cost": 0.075,
+            "Supplier": "TBD",
+            "Part_Number": "TBD"
+        })
         
         return bom_data
     
     def _get_material_cost(self, material: str, material_type: str) -> float:
-        """Get cost per gram for active materials based on material type.
+        """Get cost per kilogram for active materials from JSON files.
         
         Args:
             material: Material name (e.g., 'NMC811', 'Graphite')
             material_type: 'cathode' or 'anode'
             
         Returns:
-            Cost per gram in USD
+            Cost per gram in USD (converted from per kg in JSON)
         """
-        # Cathode material costs (USD per gram)
-        cathode_costs = {
-            'NMC811': 0.50,
-            'NMC622': 0.45,
-            'NMC532': 0.40,
-            'LCO': 0.55,
-            'NCA': 0.48,
-            'LFP': 0.25
+        # Determine category based on material type
+        category = 'cathodes' if material_type == 'cathode' else 'anodes'
+        
+        # Load material data from JSON
+        material_data = load_material_from_file(material, category)
+        
+        if material_data and 'cost' in material_data:
+            # Convert from cost per kg to cost per gram
+            cost_per_kg = material_data['cost'].get('per_kg', 0.0)
+            return cost_per_kg / 1000.0  # Convert to per gram
+        
+        # Fallback defaults if no JSON data available
+        default_costs = {
+            'cathode': 0.050,  # $50/kg = $0.050/g
+            'anode': 0.008     # $8/kg = $0.008/g
         }
         
-        # Anode material costs (USD per gram)
-        anode_costs = {
-            'Graphite': 0.10,
-            'Silicon': 0.30,
-            'Tin': 0.35,
-            'LTO': 0.20,
-            'Hard Carbon': 0.25,
-            'Graphite+SiO2': 0.15
-        }
-        
-        if material_type == 'cathode':
-            return cathode_costs.get(material, 0.50)  # Default cathode cost
-        else:
-            return anode_costs.get(material, 0.10)   # Default anode cost
+        return default_costs.get(material_type, 0.050)
     
     def _get_binder_cost(self, binder: str) -> float:
-        """Get cost per gram for binder materials.
+        """Get cost per gram for binder materials from JSON files.
         
         Args:
-            binder: Binder name (e.g., 'PVDF', 'PAA')
+            binder: Binder name (e.g., 'PVDF', 'CMC')
             
         Returns:
-            Cost per gram in USD
+            Cost per gram in USD (converted from per kg in JSON)
         """
-        binder_costs = {
-            'PVDF': 0.20,
-            'PAA': 0.15,
-            'CMC': 0.12,
-            'SBR': 0.08,
-            'LA132': 0.25
-        }
+        # Load binder data from JSON
+        binder_data = load_material_from_file(binder, 'binders')
         
-        return binder_costs.get(binder, 0.20)  # Default binder cost
+        if binder_data and 'cost' in binder_data:
+            # Convert from cost per kg to cost per gram
+            cost_per_kg = binder_data['cost'].get('per_kg', 0.0)
+            return cost_per_kg / 1000.0  # Convert to per gram
+        
+        # Fallback default if no JSON data available
+        return 0.035  # $35/kg = $0.035/g default for binders
     
     def render_simulation(self):
         """Render simulation page with performance, thermal, and aging simulations"""

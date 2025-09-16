@@ -23,6 +23,7 @@ import json
 
 # Project-specific imports
 from .electrode_materials import ElectrodeMaterialManager
+from .material_data import get_available_materials
 
 
 def render_cathode_electrode_design():
@@ -82,8 +83,11 @@ def render_cathode_electrode_design():
     with col1:
         st.markdown("#### Electrode Composition")
         
-        # Active material selection with connection to cathode page
-        cathode_materials = ["NMC811", "LCO", "NCA", "NMC622", "NMC532"]
+        # Active material selection with dynamic loading from JSON files
+        cathode_materials = get_available_materials('cathodes')
+        if not cathode_materials:
+            st.error("No cathode materials found. Please check the data/materials/cathodes/ directory.")
+            cathode_materials = ["NMC811"]  # Fallback
         selected_cathode = st.selectbox("Active Material:", cathode_materials, key="cathode_active_material")
         
         if selected_cathode:
@@ -285,8 +289,11 @@ def render_anode_electrode_design():
     with col1:
         st.markdown("#### Electrode Composition")
         
-        # Active material selection with connection to anode page
-        anode_materials = ["Graphite", "Silicon", "Tin", "LTO", "Hard Carbon"]
+        # Active material selection with dynamic loading from JSON files
+        anode_materials = get_available_materials('anodes')
+        if not anode_materials:
+            st.error("No anode materials found. Please check the data/materials/anodes/ directory.")
+            anode_materials = ["Graphite"]  # Fallback
         selected_anode = st.selectbox("Active Material:", anode_materials, key="anode_active_material")
         
         if selected_anode:
