@@ -1,12 +1,35 @@
 """
 AI Assistant Module for Cell Development Platform
-Provides context-aware OpenAI-powered chat interface
+
+This module provides an intelligent, context-aware chat interface for the
+battery cell development platform. Features include:
+
+- OpenAI GPT-4 powered conversational AI
+- Context awareness of current design workflow state
+- Material-specific knowledge and guidance
+- Natural language navigation commands
+- Real-time chat with scrollable message history
+- Integration with all platform modules
+
+The AI assistant can help users:
+- Navigate the application
+- Understand material properties and selections
+- Get design recommendations
+- Troubleshoot issues
+- Learn about battery cell development concepts
+
+Author: Cell Development Platform Team
+Version: 2.0 - Enhanced context awareness
 """
+
+# Core libraries
 import streamlit as st
 import openai
 import os
 from typing import List, Dict, Any
 import json
+
+# Environment management
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -14,7 +37,29 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)),
 
 
 class CellDevelopmentAI:
-    """Context-aware AI assistant for cell development platform"""
+    """Context-aware AI assistant for battery cell development platform.
+    
+    This class provides intelligent conversational assistance for battery cell
+    development workflows. It maintains awareness of the current design state
+    and provides contextually relevant guidance.
+    
+    Features:
+    - GPT-4 powered natural language processing
+    - Context awareness of current workflow step and selections
+    - Material-specific knowledge base
+    - Design recommendations and best practices
+    - Natural language navigation commands
+    - Error handling and graceful degradation
+    
+    Attributes:
+        client: OpenAI API client for GPT-4 interactions
+        system_prompt: Expert system prompt for battery cell development
+    
+    Methods:
+        get_context_info(): Extract current workflow context
+        generate_response(): Generate contextual AI responses
+        render_chat_interface(): Render the chat UI with scrolling
+    """
     
     def __init__(self):
         # Check if API key is available
@@ -124,7 +169,7 @@ class CellDevelopmentAI:
     
     def render_chat_interface(self):
         """Render the chat interface with fixed height and scrolling"""
-        st.markdown("### 🤖 AI Assistant")
+        st.markdown("### Chat With Protos")
         
         # Initialize chat history and context
         if 'chat_history' not in st.session_state:
@@ -161,55 +206,18 @@ class CellDevelopmentAI:
                 if workflow_info:
                     st.write(f"**Design Workflow:** {' | '.join(workflow_info)}")
         
-        # Create fixed-height chat container
-        st.markdown("#### Chat with AI Assistant")
-        
-        # Create a fixed-height scrollable container using HTML/CSS
-        chat_html = '''
-        <div style="height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; background: #ffffff; margin-bottom: 16px;" id="chat-messages">
-        '''
-        st.markdown(chat_html, unsafe_allow_html=True)
-        
-        # Create a scrollable area for chat history
-        chat_history = st.session_state.chat_history
-        
-        # Display chat messages with proper styling
-        for i, message in enumerate(chat_history):
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
-        
-        # Close the chat container
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Add JavaScript for auto-scrolling
-        scroll_js = '''
-        <script>
-        function scrollToBottom() {
-            const chatContainer = document.getElementById('chat-messages');
-            if (chatContainer) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        }
-        
-        // Scroll to bottom when page loads
-        window.addEventListener('load', scrollToBottom);
-        
-        // Scroll to bottom when new messages are added
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'childList') {
-                    scrollToBottom();
-                }
-            });
-        });
-        
-        const chatContainer = document.getElementById('chat-messages');
-        if (chatContainer) {
-            observer.observe(chatContainer, { childList: true, subtree: true });
-        }
-        </script>
-        '''
-        st.markdown(scroll_js, unsafe_allow_html=True)
+        # Create chat messages container with proper scrolling
+        if st.session_state.chat_history:
+            # Display chat messages with height constraint
+            with st.container(height=400):
+                # Display all messages in chronological order
+                for message in st.session_state.chat_history:
+                    with st.chat_message(message["role"]):
+                        st.write(message["content"])
+        else:
+            # Show welcome message when no chat history
+            with st.container(height=400):
+                st.info("👋 Welcome! Ask me anything about battery cell development...")
         
         # Chat input at the bottom
         if prompt := st.chat_input("Ask me anything about cell development..."):
@@ -237,19 +245,6 @@ class CellDevelopmentAI:
             # Limit chat history to prevent memory issues (keep last 50 messages)
             if len(st.session_state.chat_history) > 50:
                 st.session_state.chat_history = st.session_state.chat_history[-50:]
-            
-            # Auto-scroll to bottom after new message
-            scroll_js = '''
-            <script>
-            setTimeout(function() {
-                const chatContainer = document.getElementById('chat-messages');
-                if (chatContainer) {
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                }
-            }, 100);
-            </script>
-            '''
-            st.markdown(scroll_js, unsafe_allow_html=True)
             
             st.rerun()
         

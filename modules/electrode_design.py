@@ -1,18 +1,48 @@
 """
 Electrode Design Functions for the Cell Development Platform
-Handles electrode composition, material properties, and performance analysis
+
+This module provides comprehensive electrode design functionality including:
+- Multi-material cathode composition (up to 2 active materials)
+- Multi-material anode composition (up to 2 active materials + 2 binders)
+- Interactive electrode parameter optimization
+- Material property analysis and visualization
+- Performance calculation and export functionality
+- Integration with material databases and CoA management
+
+Author: Cell Development Platform Team
+Version: 2.0 - Multi-material support
 """
+
+# Core libraries
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import json
+
+# Project-specific imports
 from .electrode_materials import ElectrodeMaterialManager
 
 
 def render_cathode_electrode_design():
-    """Render the cathode electrode design interface"""
+    """Render comprehensive cathode electrode design interface.
+    
+    Provides a complete electrode design workflow including:
+    - Multi-material selection and blending (up to 2 active materials)
+    - Binder and conductive agent selection
+    - Current collector (foil) material and thickness selection
+    - Real-time electrode property calculations
+    - Material property visualization
+    - Design export functionality
+    
+    Features:
+    - Interactive composition optimization
+    - Volume fraction calculations
+    - Mass loading and density estimation
+    - Integration with material property databases
+    - Export to JSON for manufacturing
+    """
     # Navigation buttons
     col1, col2, col3 = st.columns(3)
     
@@ -61,8 +91,8 @@ def render_cathode_electrode_design():
             
             # Link to detailed cathode page
             if st.button(f"📋 View {selected_cathode} Details", key="view_cathode_details"):
-                st.session_state.current_page = 'cathode_details'
-                st.session_state.detailed_cathode = selected_cathode
+                st.session_state.current_page = 'cathode_materials'
+                st.session_state.selected_cathode = selected_cathode
                 st.rerun()
         
         # Binder selection
@@ -264,8 +294,8 @@ def render_anode_electrode_design():
             
             # Link to detailed anode page
             if st.button(f"📋 View {selected_anode} Details", key="view_anode_details"):
-                st.session_state.current_page = 'anode_details'
-                st.session_state.detailed_anode = selected_anode
+                st.session_state.current_page = 'anode_materials'
+                st.session_state.selected_anode = selected_anode
                 st.rerun()
         
         # Binder selection

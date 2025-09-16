@@ -1,6 +1,24 @@
 """
 Enhanced Schematic Generator for Cell Development Platform
-Creates detailed multi-view schematics for different cell form factors
+
+This module generates high-quality 2D schematics for battery cell form factors.
+Supports multiple views and detailed component visualization.
+
+Features:
+- Multi-view schematics (cross-section, side view, front view)
+- Support for cylindrical, pouch, and prismatic cell types
+- Interactive dimension annotations
+- Realistic component layering and proportions
+- Theme-aware color schemes
+- Scalable vector graphics with Plotly
+
+Cell Types Supported:
+- Cylindrical: Cross-section and side views with inner/outer diameter
+- Pouch: Front and side views with terminal positioning
+- Prismatic: Front and side views with terminal configuration
+
+Author: Cell Development Platform Team
+Version: 2.0 - Enhanced multi-view support
 """
 
 import streamlit as st
@@ -12,9 +30,56 @@ from .theme_colors import get_theme_colors, get_plotly_theme, get_current_theme
 
 
 class SchematicGenerator:
-    """Generates detailed schematics for different cell form factors"""
+    """
+    Advanced Schematic Generator for Battery Cell Form Factors
+    
+    This class generates detailed, accurate 2D schematics for various battery cell
+    form factors with multi-view support and professional presentation.
+    
+    Features:
+    - Multi-view schematic generation (cross-section, side, front views)
+    - Support for cylindrical, pouch, and prismatic cell types
+    - Interactive dimension annotations and measurements
+    - Realistic component layering with proper proportions
+    - Theme-aware color schemes and professional styling
+    - Scalable vector graphics using Plotly for high quality output
+    
+    Supported Cell Types:
+    - Cylindrical: Detailed cross-section showing internal layers, side view with dimensions
+    - Pouch: Front view with terminal layout, side view showing thickness profile
+    - Prismatic: Front and side views with terminal configurations and housing details
+    
+    The generator creates publication-ready schematics suitable for technical
+    documentation, presentations, and manufacturing specifications.
+    
+    Attributes:
+        colors (dict): Theme-aware colors from the color scheme manager
+        plotly_theme (dict): Plotly theme configuration for consistent styling
+        layer_colors (dict): Predefined colors for different cell components
+    
+    Methods:
+        create_cylindrical_schematics(): Creates cross-section and side view for cylindrical cells
+        create_pouch_schematics(): Creates front and side views for pouch cells
+        create_prismatic_schematics(): Creates front and side views for prismatic cells
+        _create_cylindrical_cross_section(): Internal method for cylindrical cross-section view
+        _create_cylindrical_side_view(): Internal method for cylindrical side view
+        _create_pouch_front_view(): Internal method for pouch front view
+        _create_pouch_side_view(): Internal method for pouch side view
+        _create_prismatic_front_view(): Internal method for prismatic front view
+        _create_prismatic_side_view(): Internal method for prismatic side view
+    """
     
     def __init__(self):
+        """
+        Initialize the Schematic Generator with theme-aware styling.
+        
+        Sets up the generator with current theme colors and Plotly configuration
+        for consistent, professional-looking schematics. Initializes predefined
+        color schemes for different cell components.
+        
+        The generator automatically adapts to the current UI theme (light/dark)
+        and provides appropriate colors and styling for all schematic elements.
+        """
         self.colors = get_theme_colors()
         self.plotly_theme = get_plotly_theme()[get_current_theme()]
         
@@ -31,7 +96,29 @@ class SchematicGenerator:
         }
     
     def create_cylindrical_schematics(self, diameter: float, height: float) -> Tuple[go.Figure, go.Figure]:
-        """Create cross-section and side view schematics for cylindrical cell"""
+        """
+        Generate comprehensive schematics for cylindrical battery cells.
+        
+        Creates both cross-section and side view schematics with proper scaling,
+        dimensional annotations, and professional styling. The cross-section view
+        shows the inner/outer diameter relationship with a 20:1 ratio, while the
+        side view displays height and diameter dimensions with terminal placement.
+        
+        Args:
+            diameter (float): Cell outer diameter in millimeters
+            height (float): Cell height in millimeters
+            
+        Returns:
+            Tuple[go.Figure, go.Figure]: A tuple containing:
+                - Cross-section view figure (top-down circular view)
+                - Side view figure (cylindrical profile with dimensions)
+                
+        The generated schematics include:
+        - Proper dimensional scaling for optimal visualization
+        - Interactive annotations showing key measurements
+        - Theme-consistent colors and styling
+        - Professional layout suitable for documentation
+        """
         
         # Calculate scaled dimensions (normalize to reasonable plot size)
         # Use smaller scale factor for cross section to make it bigger
@@ -51,7 +138,24 @@ class SchematicGenerator:
         return cross_section, side_view
     
     def _create_cylindrical_cross_section(self, diameter: float) -> go.Figure:
-        """Create cross-section view of cylindrical cell"""
+        """
+        Create detailed cross-section (top-down) view of a cylindrical cell.
+        
+        Generates a circular schematic showing the outer cell boundary and inner
+        diameter relationship. Uses a 20:1 ratio between outer and inner diameters
+        with clear annotations and professional styling.
+        
+        Args:
+            diameter (float): Scaled diameter for optimal plot visualization
+            
+        Returns:
+            go.Figure: Plotly figure showing circular cross-section with:
+                - Outer cell boundary in blue
+                - Inner diameter circle with dashed red outline
+                - Dimensional annotations for both diameters
+                - Center point marker for reference
+                - Equal aspect ratio for accurate representation
+        """
         fig = go.Figure()
         
         # Create concentric circles for different layers
@@ -88,14 +192,14 @@ class SchematicGenerator:
                                 line=dict(color='#2980b9', width=3),
                                 name='Cylindrical Cell'))
         
-        # Add inner circle for inner diameter - make it more prominent
-        r_inner = r_outer * 0.65  # Make inner diameter larger for better visibility
+        # Add inner circle for inner diameter - very small with 20:1 ratio
+        r_inner = r_outer * 0.05  # 20:1 ratio between outer and inner diameter
         x_inner = r_inner * np.cos(theta)
         y_inner = r_inner * np.sin(theta)
         
         fig.add_trace(go.Scatter(x=x_inner, y=y_inner, fill='toself',
-                                fillcolor='rgba(52, 152, 219, 0.2)',
-                                line=dict(color='#e74c3c', width=3, dash='dash'),  # Red dashed line for better visibility
+                                fillcolor='rgba(255, 255, 255, 0.8)',  # White interior
+                                line=dict(color='#e74c3c', width=4, dash='dash'),  # Thicker red dashed line
                                 name='Inner Diameter'))
         
         # Add outer diameter annotation
@@ -103,10 +207,9 @@ class SchematicGenerator:
                           arrowhead=2, arrowcolor="red", ax=0, ay=-20,
                           font=dict(size=12, color="red"))
         
-        # Add inner diameter annotation - make it more visible
-        fig.add_annotation(x=0, y=r_inner + 0.15, text="d (Inner)", showarrow=True, 
-                          arrowhead=2, arrowcolor="red", ax=0, ay=-20,
-                          font=dict(size=14, color="red", family="Arial Black"))
+        # Add inner diameter annotation inside the circle
+        fig.add_annotation(x=0, y=0, text="d (Inner)", showarrow=False,
+                          font=dict(size=16, color="red", family="Arial Black"))
         
         # Add center point
         fig.add_trace(go.Scatter(x=[0], y=[0], mode='markers', 
@@ -115,14 +218,14 @@ class SchematicGenerator:
         
         # Merge layout parameters to avoid conflicts
         layout_updates = {
-            'title': "Cylindrical Cell - Cross Section View",
+            'title': "Cross Section View",
             'xaxis': dict(scaleanchor="y", scaleratio=1, showgrid=False, zeroline=False, showticklabels=False,
                          range=[-r_outer-0.3, r_outer+0.3]),
             'yaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-r_outer-0.3, r_outer+0.3]),
             'showlegend': False,
             'height': 500,
-            'margin': dict(l=20, r=20, t=40, b=20)
+            'margin': dict(l=10, r=10, t=30, b=10)
         }
         
         # Merge with theme layout
@@ -133,7 +236,24 @@ class SchematicGenerator:
         return fig
     
     def _create_cylindrical_side_view(self, diameter: float, height: float) -> go.Figure:
-        """Create side view of cylindrical cell"""
+        """
+        Create detailed side view of a cylindrical cell with terminals.
+        
+        Generates a rectangular profile view showing the cell height and diameter
+        with a top-mounted terminal. Includes dimensional annotations and professional
+        styling consistent with technical documentation standards.
+        
+        Args:
+            diameter (float): Scaled cell diameter for visualization
+            height (float): Scaled cell height for visualization
+            
+        Returns:
+            go.Figure: Plotly figure showing cylindrical side profile with:
+                - Main cell body in blue with proper proportions
+                - Top terminal in orange with realistic dimensions
+                - Height (H) and diameter (D) annotations with arrows
+                - Professional layout optimized for technical documentation
+        """
         fig = go.Figure()
         
         # Create rectangular layers for side view
@@ -191,14 +311,14 @@ class SchematicGenerator:
         
         # Merge layout parameters to avoid conflicts
         layout_updates = {
-            'title': "Cylindrical Cell - Side View",
+            'title': "Side View",
             'xaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-d_half-0.2, d_half+0.2]),
             'yaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-0.2, height+terminal_height+0.2]),
             'showlegend': False,
             'height': 400,
-            'margin': dict(l=20, r=20, t=40, b=20)
+            'margin': dict(l=10, r=10, t=30, b=10)
         }
         
         # Merge with theme layout
@@ -209,7 +329,29 @@ class SchematicGenerator:
         return fig
     
     def create_pouch_schematics(self, height: float, width: float, length: float) -> Tuple[go.Figure, go.Figure]:
-        """Create front and side view schematics for pouch cell with top terminals"""
+        """
+        Generate comprehensive schematics for pouch battery cells.
+        
+        Creates both front and side view schematics showing the flexible pouch design
+        with top-mounted terminals. Includes proper scaling, dimensional annotations,
+        and professional styling suitable for technical documentation.
+        
+        Args:
+            height (float): Cell height in millimeters
+            width (float): Cell width in millimeters  
+            length (float): Cell length/depth in millimeters
+            
+        Returns:
+            Tuple[go.Figure, go.Figure]: A tuple containing:
+                - Front view figure showing width x height dimensions
+                - Side view figure showing length x height profile
+                
+        The generated schematics include:
+        - Realistic pouch cell proportions and flexible edges
+        - Top-mounted terminal configurations
+        - Clear dimensional annotations
+        - Professional layout for manufacturing specifications
+        """
         
         # Calculate scaled dimensions
         scale_factor = 100.0
@@ -226,7 +368,25 @@ class SchematicGenerator:
         return front_view, side_view
     
     def _create_pouch_front_view(self, height: float, width: float, length: float) -> go.Figure:
-        """Create front view of pouch cell with top terminals"""
+        """
+        Create detailed front view of a pouch cell with top terminals.
+        
+        Generates a rectangular schematic showing the pouch cell's front face
+        with closely-spaced top terminals and dimensional annotations. Uses
+        realistic proportions and professional styling.
+        
+        Args:
+            height (float): Scaled cell height for visualization
+            width (float): Scaled cell width for visualization
+            length (float): Scaled cell length (not used in front view but kept for consistency)
+            
+        Returns:
+            go.Figure: Plotly figure showing pouch front view with:
+                - Main pouch body in red with flexible edge representation
+                - Positive and negative terminals in orange at the top
+                - Height (H) and length (L) dimensional annotations
+                - Equal aspect ratio for accurate proportional display
+        """
         fig = go.Figure()
         
         # Main pouch body
@@ -292,20 +452,20 @@ class SchematicGenerator:
                           arrowhead=2, arrowcolor="red", ax=0, ay=-20,
                           font=dict(size=14, color="red"))
         
-        fig.add_annotation(x=w_half + 0.1, y=0, text="W", showarrow=True,
+        fig.add_annotation(x=w_half + 0.1, y=0, text="L", showarrow=True,
                           arrowhead=2, arrowcolor="red", ax=-20, ay=0,
                           font=dict(size=14, color="red"))
         
         # Merge layout parameters to avoid conflicts
         layout_updates = {
-            'title': "Pouch Cell - Front View (with Top Terminals)",
+            'title': "Front View",
             'xaxis': dict(scaleanchor="y", scaleratio=1, showgrid=False, zeroline=False, showticklabels=False,
                          range=[-w_half-0.2, w_half+0.2]),
             'yaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-h_half-0.2, h_half+0.4]),
             'showlegend': False,
             'height': 400,
-            'margin': dict(l=20, r=20, t=40, b=20)
+            'margin': dict(l=10, r=10, t=30, b=10)
         }
         
         # Merge with theme layout
@@ -316,7 +476,25 @@ class SchematicGenerator:
         return fig
     
     def _create_pouch_side_view(self, height: float, width: float, length: float) -> go.Figure:
-        """Create side view of pouch cell"""
+        """
+        Create detailed side view of a pouch cell showing thickness profile.
+        
+        Generates a rectangular schematic showing the pouch cell's side profile
+        with terminal configuration and dimensional annotations. Demonstrates
+        the cell's width/thickness dimension clearly.
+        
+        Args:
+            height (float): Scaled cell height for visualization
+            width (float): Scaled cell width (not used in side view but kept for consistency)
+            length (float): Scaled cell length/depth for side view width
+            
+        Returns:
+            go.Figure: Plotly figure showing pouch side view with:
+                - Main pouch body in red showing thickness profile
+                - Terminal configuration in orange at the top
+                - Height (H) and width (W) dimensional annotations
+                - Professional layout for technical documentation
+        """
         fig = go.Figure()
         
         # Main pouch body (side view shows thickness)
@@ -367,20 +545,20 @@ class SchematicGenerator:
                           arrowhead=2, arrowcolor="red", ax=0, ay=-20,
                           font=dict(size=14, color="red"))
         
-        fig.add_annotation(x=l_half + 0.1, y=0, text="L", showarrow=True,
+        fig.add_annotation(x=l_half + 0.1, y=0, text="W", showarrow=True,
                           arrowhead=2, arrowcolor="red", ax=-20, ay=0,
                           font=dict(size=14, color="red"))
         
         # Merge layout parameters to avoid conflicts
         layout_updates = {
-            'title': "Pouch Cell - Side View",
+            'title': "Side View",
             'xaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-l_half-0.2, l_half+0.2]),
             'yaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-h_half-0.2, h_half+0.4]),
             'showlegend': False,
             'height': 400,
-            'margin': dict(l=20, r=20, t=40, b=20)
+            'margin': dict(l=10, r=10, t=30, b=10)
         }
         
         # Merge with theme layout
@@ -391,7 +569,29 @@ class SchematicGenerator:
         return fig
     
     def create_prismatic_schematics(self, height: float, width: float, length: float) -> Tuple[go.Figure, go.Figure]:
-        """Create front and side view schematics for prismatic cell with top terminals"""
+        """
+        Generate comprehensive schematics for prismatic battery cells.
+        
+        Creates both front and side view schematics showing the rigid prismatic design
+        with widely-spaced top terminals. Includes proper scaling, dimensional annotations,
+        and professional styling suitable for technical documentation.
+        
+        Args:
+            height (float): Cell height in millimeters
+            width (float): Cell width in millimeters  
+            length (float): Cell length/depth in millimeters
+            
+        Returns:
+            Tuple[go.Figure, go.Figure]: A tuple containing:
+                - Front view figure showing width x height dimensions
+                - Side view figure showing length x height profile
+                
+        The generated schematics include:
+        - Rigid rectangular cell housing in green
+        - Widely-spaced terminal configurations for better current distribution
+        - Clear dimensional annotations for manufacturing specifications
+        - Professional layout optimized for hard case cell documentation
+        """
         
         # Calculate scaled dimensions
         scale_factor = 100.0
@@ -408,7 +608,25 @@ class SchematicGenerator:
         return front_view, side_view
     
     def _create_prismatic_front_view(self, height: float, width: float, length: float) -> go.Figure:
-        """Create front view of prismatic cell with top terminals"""
+        """
+        Create detailed front view of a prismatic cell with widely-spaced terminals.
+        
+        Generates a rectangular schematic showing the prismatic cell's front face
+        with widely-spaced top terminals for optimal current distribution. Uses
+        green coloring to distinguish from pouch cells and professional styling.
+        
+        Args:
+            height (float): Scaled cell height for visualization
+            width (float): Scaled cell width for visualization
+            length (float): Scaled cell length (not used in front view but kept for consistency)
+            
+        Returns:
+            go.Figure: Plotly figure showing prismatic front view with:
+                - Main prismatic body in green with rigid edge representation
+                - Widely-spaced positive and negative terminals in orange
+                - Height (H) and length (L) dimensional annotations
+                - Equal aspect ratio for accurate proportional display
+        """
         fig = go.Figure()
         
         # Main prismatic body
@@ -469,20 +687,20 @@ class SchematicGenerator:
                           arrowhead=2, arrowcolor="red", ax=0, ay=-20,
                           font=dict(size=14, color="red"))
         
-        fig.add_annotation(x=w_half + 0.1, y=0, text="W", showarrow=True,
+        fig.add_annotation(x=w_half + 0.1, y=0, text="L", showarrow=True,
                           arrowhead=2, arrowcolor="red", ax=-20, ay=0,
                           font=dict(size=14, color="red"))
         
         # Merge layout parameters to avoid conflicts
         layout_updates = {
-            'title': "Prismatic Cell - Front View (with Top Terminals)",
+            'title': "Front View",
             'xaxis': dict(scaleanchor="y", scaleratio=1, showgrid=False, zeroline=False, showticklabels=False,
                          range=[-w_half-0.2, w_half+0.2]),
             'yaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-h_half-0.2, h_half+0.4]),
             'showlegend': False,
             'height': 400,
-            'margin': dict(l=20, r=20, t=40, b=20)
+            'margin': dict(l=10, r=10, t=30, b=10)
         }
         
         # Merge with theme layout
@@ -493,7 +711,25 @@ class SchematicGenerator:
         return fig
     
     def _create_prismatic_side_view(self, height: float, width: float, length: float) -> go.Figure:
-        """Create side view of prismatic cell"""
+        """
+        Create detailed side view of a prismatic cell showing depth profile.
+        
+        Generates a rectangular schematic showing the prismatic cell's side profile
+        with terminal configuration and dimensional annotations. Demonstrates
+        the cell's length/depth dimension with rigid housing characteristics.
+        
+        Args:
+            height (float): Scaled cell height for visualization
+            width (float): Scaled cell width (not used in side view but kept for consistency)
+            length (float): Scaled cell length/depth for side view width
+            
+        Returns:
+            go.Figure: Plotly figure showing prismatic side view with:
+                - Main prismatic body in green showing rigid depth profile
+                - Terminal configuration in orange at the top
+                - Height (H) and width (W) dimensional annotations
+                - Professional layout for hard case cell documentation
+        """
         fig = go.Figure()
         
         # Main prismatic body (side view shows thickness)
@@ -542,20 +778,20 @@ class SchematicGenerator:
                           arrowhead=2, arrowcolor="red", ax=0, ay=-20,
                           font=dict(size=14, color="red"))
         
-        fig.add_annotation(x=l_half + 0.1, y=0, text="L", showarrow=True,
+        fig.add_annotation(x=l_half + 0.1, y=0, text="W", showarrow=True,
                           arrowhead=2, arrowcolor="red", ax=-20, ay=0,
                           font=dict(size=14, color="red"))
         
         # Merge layout parameters to avoid conflicts
         layout_updates = {
-            'title': "Prismatic Cell - Side View",
+            'title': "Side View",
             'xaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-l_half-0.2, l_half+0.2]),
             'yaxis': dict(showgrid=False, zeroline=False, showticklabels=False,
                          range=[-h_half-0.2, h_half+0.4]),
             'showlegend': False,
             'height': 400,
-            'margin': dict(l=20, r=20, t=40, b=20)
+            'margin': dict(l=10, r=10, t=30, b=10)
         }
         
         # Merge with theme layout
@@ -566,10 +802,35 @@ class SchematicGenerator:
         return fig
     
     def render_schematics(self, form_factor: str, dimensions: Dict[str, float]):
-        """Render appropriate schematics based on form factor"""
+        """
+        Render and display appropriate schematics based on cell form factor.
         
-        # Set consistent height for all charts
-        chart_height = 300
+        Main rendering method that determines the cell type and displays the appropriate
+        multi-view schematics in a Streamlit interface. Automatically scales charts
+        for consistent presentation and creates a professional two-column layout.
+        
+        Args:
+            form_factor (str): Cell form factor type ('cylindrical', 'pouch', 'prismatic')
+            dimensions (Dict[str, float]): Dictionary containing cell dimensions:
+                - For cylindrical: 'diameter' (mm), 'height' (mm)
+                - For pouch: 'height' (mm), 'width' (mm), 'length' (mm) 
+                - For prismatic: 'height' (mm), 'width' (mm), 'length' (mm)
+                
+        The method automatically:
+        - Determines the appropriate schematic type based on form_factor
+        - Creates multi-view schematics with professional styling
+        - Displays them in a responsive two-column Streamlit layout
+        - Applies consistent chart heights for uniform presentation
+        - Uses fallback default dimensions if values are missing
+        
+        Supported Form Factors:
+        - 'cylindrical': Shows cross-section and side views
+        - 'pouch': Shows front and side views with flexible design
+        - 'prismatic': Shows front and side views with rigid housing
+        """
+        
+        # Set consistent height for all charts - reduced for compact layout
+        chart_height = 200
         
         if form_factor == "cylindrical":
             diameter = dimensions.get('diameter', 18.0)
@@ -581,8 +842,8 @@ class SchematicGenerator:
             
             with col1:
                 cross_section, side_view = self.create_cylindrical_schematics(diameter, height)
-                # Set height for cross section (bigger)
-                cross_section.update_layout(height=chart_height + 50)
+                # Set consistent height for both views to match other form factors
+                cross_section.update_layout(height=chart_height)
                 st.plotly_chart(cross_section, use_container_width=True)
             
             with col2:

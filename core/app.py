@@ -181,62 +181,24 @@ st.markdown("""
         color: white !important;
     }
     
-    /* Fixed height chat container with scrolling */
-    #chat-messages {
-        height: 400px !important;
-        overflow-y: auto !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 8px !important;
-        padding: 16px !important;
-        background: #ffffff !important;
-        margin-bottom: 16px !important;
-        scroll-behavior: smooth !important;
-    }
-    
-    .stApp[data-theme="dark"] #chat-messages {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-    }
-    
     /* Chat message styling */
     .stChatMessage {
         margin-bottom: 16px !important;
     }
     
-    /* Ensure chat messages are properly displayed */
+    /* Chat messages container styling */
     .stChatMessage > div {
         background: transparent !important;
+        border-radius: 8px !important;
     }
     
-    /* Custom scrollbar for chat container */
-    #chat-messages::-webkit-scrollbar {
-        width: 6px;
-    }
-    
-    #chat-messages::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-    }
-    
-    #chat-messages::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 3px;
-    }
-    
-    #chat-messages::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-    }
-    
-    .stApp[data-theme="dark"] #chat-messages::-webkit-scrollbar-track {
-        background: #374151;
-    }
-    
-    .stApp[data-theme="dark"] #chat-messages::-webkit-scrollbar-thumb {
-        background: #6b7280;
-    }
-    
-    .stApp[data-theme="dark"] #chat-messages::-webkit-scrollbar-thumb:hover {
-        background: #9ca3af;
+    /* Chat input styling */
+    .stChatInput {
+        position: sticky;
+        bottom: 0;
+        background: var(--background-color);
+        padding: 10px 0;
+        border-top: 1px solid var(--border-color);
     }
     
     .stApp[data-theme="dark"] .stSelectbox > div > div > div {
