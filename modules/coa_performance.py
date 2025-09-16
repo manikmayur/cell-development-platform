@@ -641,7 +641,7 @@ class CoAPerformanceManager:
         """Render OCV curve plot"""
         
         # Import OCV generator
-        from ocv_curves import OCVCurveGenerator
+        from .ocv_curves import OCVCurveGenerator
         
         ocv_gen = OCVCurveGenerator()
         

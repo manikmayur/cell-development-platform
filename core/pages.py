@@ -391,7 +391,7 @@ def render_cell_design_page():
     
     # Initialize cell design manager
     if 'cell_design_manager' not in st.session_state:
-        from cell_design import CellDesignManager
+        from modules.cell_design import CellDesignManager
         st.session_state.cell_design_manager = CellDesignManager()
     
     design_manager = st.session_state.cell_design_manager
@@ -402,7 +402,7 @@ def render_cell_design_page():
 
 def render_chat_interface():
     """Render the enhanced chat interface with context awareness"""
-    from ai_assistant import render_chat_interface as ai_render_chat_interface
+    from modules.ai_assistant import render_chat_interface as ai_render_chat_interface
     ai_render_chat_interface()
 
 

@@ -6,7 +6,7 @@ A modular Streamlit application for battery material analysis and optimization
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from pages import (
+from .pages import (
     render_header, render_home_page, render_material_selector_page,
     render_cathode_materials_page, render_anode_materials_page,
     render_cell_design_page, render_chat_interface
@@ -14,7 +14,7 @@ from pages import (
 from modules.electrode_design import render_cathode_electrode_design, render_anode_electrode_design
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 # Page configuration
 st.set_page_config(
@@ -439,10 +439,10 @@ def main():
         elif st.session_state.current_page == 'material_selector':
             render_material_selector_page()
         elif st.session_state.current_page == 'cathode_materials':
-            from pages import render_cathode_materials_page_new
+            from .pages import render_cathode_materials_page_new
             render_cathode_materials_page_new()
         elif st.session_state.current_page == 'anode_materials':
-            from pages import render_anode_materials_page_new
+            from .pages import render_anode_materials_page_new
             render_anode_materials_page_new()
         elif st.session_state.current_page == 'cathode_electrode_design':
             render_cathode_electrode_design()
