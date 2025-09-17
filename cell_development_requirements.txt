@@ -4,3 +4,15 @@ plotly>=5.15.0
 openpyxl>=3.1.0
 openai>=1.0.0
 python-dotenv>=1.0.0
+
+# Multi-agent system dependencies
+google-adk==1.10.0
+mcp==1.13.1
+fastapi==0.116.0
+uvicorn==0.35.0
+httpx==0.28.1
+starlette
+anthropic==0.61.0
+litellm==1.74.0
+pydantic>=2.11.3
+pybammsolvers

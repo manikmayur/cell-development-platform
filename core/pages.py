@@ -401,9 +401,9 @@ def render_cell_design_page():
 
 
 def render_chat_interface():
-    """Render the enhanced chat interface with context awareness"""
-    from modules.ai_assistant import render_chat_interface as ai_render_chat_interface
-    ai_render_chat_interface()
+    """Render the multi-agent chat interface"""
+    from modules.multi_agent_chat import render_multi_agent_chat_interface
+    render_multi_agent_chat_interface()
 
 
 def render_ocv_curves_page():
