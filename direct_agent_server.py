@@ -121,7 +121,7 @@ async def stream_agent_events(agent, message: str, context: Dict[str, Any], sess
         # Create invocation context with minimal required parameters
         from google.adk.agents.run_config import RunConfig
         
-        run_config = RunConfig()
+        run_config = RunConfig(max_llm_calls=8)  # Limit LLM calls to prevent loops
         
         ctx = InvocationContext(
             invocation_id=str(uuid.uuid4()),
@@ -238,7 +238,7 @@ async def invoke_agent_directly(agent, message: str, context: Dict[str, Any], se
         # Create invocation context with minimal required parameters
         from google.adk.agents.run_config import RunConfig
         
-        run_config = RunConfig()
+        run_config = RunConfig(max_llm_calls=8)  # Limit LLM calls to prevent loops
         
         ctx = InvocationContext(
             invocation_id=str(uuid.uuid4()),

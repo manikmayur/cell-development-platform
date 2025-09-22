@@ -7,17 +7,18 @@ from google.adk.agents import LlmAgent, LoopAgent, BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools.mcp_tool.mcp_toolset import (
-    MCPToolset,
-    StdioConnectionParams,
-    StdioServerParameters,
-)
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from google.adk.tools import agent_tool
+from typing import AsyncGenerator
 
 from .sub_agents.cell_designer_agent.agent import cell_designer_agent
 from .sub_agents.cell_library_agent.agent import cell_library_agent
 from .sub_agents.cell_simulation_agent.agent import cell_simulation_agent
+from .regular_tools.workflow_tools import (
+    workflows_help_info_tool,
+    prepare_cell_design_workflow_tool,
+    prepare_simulation_workflow_tool,
+)
 
 from starlette.responses import JSONResponse
 
@@ -38,10 +39,6 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # MODEL_NAME = "gemini-2.5-pro"
 MODEL_NAME = "anthropic/claude-4-sonnet-20250514"
 # MODEL_NAME = "openai/gpt-4o-mini"
-MCP_TARGET_FOLDER_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "../mcp_server/cell_design_mcp.py",
-)
 
 cell_design_library_tool = agent_tool.AgentTool(
     agent=cell_library_agent, 
@@ -81,19 +78,9 @@ task_coordinating_agent = LlmAgent(
     description="Coordinating Agent for cell design tasks",
     instruction=CELL_DESIGN_COORDINATING_AGENT_INSTRUCTION,
     tools=[
-        MCPToolset(
-            connection_params=StdioConnectionParams(
-                server_params=StdioServerParameters(
-                    command="mcp",
-                    args=[
-                        "run",
-                        os.path.abspath(MCP_TARGET_FOLDER_PATH),
-                    ],
-                ),
-            ),
-            tool_filter=["workflows_help_info", "prepare_cell_design_workflow", "prepare_cell_simulation_workflow"],
-        ),
-        # cell_design_library_tool,
+        workflows_help_info_tool,
+        prepare_cell_design_workflow_tool,
+        prepare_simulation_workflow_tool,
     ],
     sub_agents=[
         cell_designer_agent,
